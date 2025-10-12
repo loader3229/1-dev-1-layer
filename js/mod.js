@@ -18,7 +18,7 @@ let VERSION = {
 
 let changelog = `<h1>更新日志：</h1><br>
 	<h3>v1</h3><br>
-		- 该层级由 [author] 制作<br>
+		- 新增了？个层级<br>
 		- 终局：0点数`
 
 let winText = `1`
@@ -45,7 +45,9 @@ function getPointGen() {
 
 	let gain = new ExpantaNum(1)
 	gain=gain.mul(tmp.AC.ach1)
-	//if (hasUpgrade('p', 11)) gain = gain.mul(2)
+	if(hasUpgrade('l1',11))gain=gain.mul(upgradeEffect('l1',11))
+	gain=gain.mul(tmp.l1.replEff1)
+	if(hasUpgrade('l1',15))gain=gain.mul(upgradeEffect('l1',15))
 
 	return gain
 }
