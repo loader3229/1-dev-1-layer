@@ -2,14 +2,14 @@ function prestigeButtonText(layer) {
 	if (layers[layer].prestigeButtonText !== undefined)
 		return run(layers[layer].prestigeButtonText(), layers[layer])
 	if (tmp[layer].type == "normal")
-		return `${player[layer].points.lt(1e3) ? (tmp[layer].resetDescription !== undefined ? tmp[layer].resetDescription : "重置以获得 ") : ""}+<b>${formatWhole(tmp[layer].resetGain)}</b> ${tmp[layer].resource} ${tmp[layer].resetGain.lt(100) && player[layer].points.lt(1e3) ? `<br><br>下一个${tmp[layer].resource}在 ${(tmp[layer].roundUpCost ? formatWhole(tmp[layer].nextAt) : format(tmp[layer].nextAt))} ${tmp[layer].baseResource}` : ""}`
+		return `${player[layer].points.lt(1e3) ? (tmp[layer].resetDescription !== undefined ? tmp[layer].resetDescription : "Reset for ") : ""}+<b>${formatWhole(tmp[layer].resetGain)}</b> ${tmp[layer].resource} ${tmp[layer].resetGain.lt(100) && player[layer].points.lt(1e3) ? `<br><br>Next at ${(tmp[layer].roundUpCost ? formatWhole(tmp[layer].nextAt) : format(tmp[layer].nextAt))} ${tmp[layer].baseResource}` : ""}`
 	if (tmp[layer].type == "static")
-		return `${tmp[layer].resetDescription !== undefined ? tmp[layer].resetDescription : "重置以获得 "}+<b>${formatWhole(tmp[layer].resetGain)}</b> ${tmp[layer].resource}<br><br>${player[layer].points.lt(30) ? (tmp[layer].baseAmount.gte(tmp[layer].nextAt) && (tmp[layer].canBuyMax !== undefined) && tmp[layer].canBuyMax ? "下一个在:" : "") : ""} ${formatWhole(tmp[layer].baseAmount)} / ${(tmp[layer].roundUpCost ? formatWhole(tmp[layer].nextAtDisp) : format(tmp[layer].nextAtDisp))} ${tmp[layer].baseResource}		
+		return `${tmp[layer].resetDescription !== undefined ? tmp[layer].resetDescription : "Reset for "}+<b>${formatWhole(tmp[layer].resetGain)}</b> ${tmp[layer].resource}<br><br>${player[layer].points.lt(30) ? (tmp[layer].baseAmount.gte(tmp[layer].nextAt) && (tmp[layer].canBuyMax !== undefined) && tmp[layer].canBuyMax ? "Next:" : "Req:") : ""} ${formatWhole(tmp[layer].baseAmount)} / ${(tmp[layer].roundUpCost ? formatWhole(tmp[layer].nextAtDisp) : format(tmp[layer].nextAtDisp))} ${tmp[layer].baseResource}		
 		`
 	if (tmp[layer].type == "none")
 		return ""
     
-        return "你是不是漏了什么没写？杂~鱼~"
+        return "You need prestige button text"
 }
 
 function constructNodeStyle(layer){
@@ -27,12 +27,12 @@ function constructNodeStyle(layer){
 
 function challengeStyle(layer, id) {
 	if (player[layer].activeChallenge == id && canCompleteChallenge(layer, id)) return "canComplete"
-	else if (hasChallenge(layer, id)) return "done"
+	else if (maxedChallenge(layer, id)) return "done"
     return "locked"
 }
 
 function challengeButtonText(layer, id) {
-    return (player[layer].activeChallenge==(id)?(canCompleteChallenge(layer, id)?"完成":"退出"):(hasChallenge(layer, id)?"已完成":"开始"))
+    return (player[layer].activeChallenge==(id)?(canCompleteChallenge(layer, id)?"Finish":"Exit Early"):(maxedChallenge(layer, id)?"Completed":"Start"))
 
 }
 
@@ -49,12 +49,10 @@ function achievementStyle(layer, id){
 
 
 
-
 function updateWidth() {
-	var screenWidth = window.innerWidth
-
-	var splitScreen = screenWidth >= 1024
-	if (player.forceOneTab) splitScreen = false
+	let screenWidth = window.innerWidth
+	let splitScreen = screenWidth >= 1024
+	if (options.forceOneTab) splitScreen = false
 	if (player.navTab == "none") splitScreen = true
 	tmp.other.screenWidth = screenWidth
 	tmp.other.screenHeight = window.innerHeight
@@ -66,10 +64,10 @@ function updateWidth() {
 function updateOomps(diff)
 {
 	tmp.other.oompsMag = 0
-	if (player.points.lte(new ExpantaNum(1e100))) return
+	if (player.points.lte(new Decimal(1e100)) || diff == 0) return
 
-	var pp = new ExpantaNum(player.points);
-	var lp = tmp.other.lastPoints || new ExpantaNum(0);
+	var pp = new Decimal(player.points);
+	var lp = tmp.other.lastPoints || new Decimal(0);
 	if (pp.gt(lp)) {
 		if (pp.gte("10^^8")) {
 			pp = pp.slog(1e10)
@@ -91,9 +89,12 @@ function updateOomps(diff)
 function constructBarStyle(layer, id) {
 	let bar = tmp[layer].bars[id]
 	let style = {}
-	if (bar.progress instanceof ExpantaNum)
-		bar.progress = bar.progress.toNumber()
-	bar.progress = (1 -Math.min(Math.max(bar.progress, 0), 1)) * 100
+
+	let tempProgress
+	if (bar.progress instanceof Decimal)
+		tempProgress = (1 -Math.min(Math.max(bar.progress.toNumber(), 0), 1)) * 100
+	else
+		tempProgress = (1 -Math.min(Math.max(bar.progress, 0), 1)) * 100
 
 	style.dims = {'width': bar.width + "px", 'height': bar.height + "px"}
 	let dir = bar.direction
@@ -101,22 +102,26 @@ function constructBarStyle(layer, id) {
 
 	switch(bar.direction) {
 		case UP:
-			style.fillDims['clip-path'] = 'inset(' + bar.progress + '% 0% 0% 0%)'
+			style.fillDims['clip-path'] = 'inset(' + tempProgress + '% 0% 0% 0%)'
 			style.fillDims.width = bar.width + 1 + 'px'
 			break;
 		case DOWN:
-			style.fillDims['clip-path'] = 'inset(0% 0% ' + bar.progress + '% 0%)'
+			style.fillDims['clip-path'] = 'inset(0% 0% ' + tempProgress + '% 0%)'
 			style.fillDims.width = bar.width + 1 + 'px'
 
 			break;
 		case RIGHT:
-			style.fillDims['clip-path'] = 'inset(0% ' + bar.progress + '% 0% 0%)'
+			style.fillDims['clip-path'] = 'inset(0% ' + tempProgress + '% 0% 0%)'
 			break;
 		case LEFT:
-			style.fillDims['clip-path'] = 'inset(0% 0% 0% ' + bar.progress + '%)'
+			style.fillDims['clip-path'] = 'inset(0% 0% 0% ' + tempProgress + '%)'
 			break;
 		case DEFAULT:
 			style.fillDims['clip-path'] = 'inset(0% 50% 0% 0%)'
+	}
+
+	if (bar.instant) {
+		style.fillDims['transition-duration'] = '0s'
 	}
 	return style
 }
@@ -147,9 +152,9 @@ function constructTabFormat(layer, id, family){
 
 	}
 	if (isFunction(tabLayer)) {
-		return tabLayer()
+		return tabLayer.bind(location)()
 	}
-	updateTempData(tabLayer, tabTemp, tabFunc)
+	updateTempData(tabLayer, tabTemp, tabFunc, {layer, id, family})
 	return tabTemp
 }
 

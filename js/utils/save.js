@@ -1,28 +1,26 @@
 // ************ Save stuff ************
-function save() {
-	localStorage.setItem(modInfo.id, btoa(unescape(encodeURIComponent(JSON.stringify(player)))));
-  //ok it saved fine so the problem must be when loading
+let getModID = () => modInfo.id ?? `${modInfo.name.replace(/\s+/g, '-')}-${modInfo.author.replace(/\s+/g, '-')}`;
+
+function save(force) {
+	NaNcheck(player)
+	if (NaNalert && !force) return
+	localStorage.setItem(getModID(), btoa(unescape(encodeURIComponent(JSON.stringify(player)))));
+	localStorage.setItem(getModID()+"_options", btoa(unescape(encodeURIComponent(JSON.stringify(options)))));
+
 }
 function startPlayerBase() {
 	return {
 		tab: layoutInfo.startTab,
 		navTab: (layoutInfo.showTree ? layoutInfo.startNavTab : "none"),
 		time: Date.now(),
-		autosave: true,
 		notify: {},
-		msDisplay: "always",
-		theme: null,
-		hqTree: false,
-		offlineProd: true,
-		versionType: modInfo.id,
+		versionType: getModID(),
 		version: VERSION.num,
 		beta: VERSION.beta,
 		timePlayed: 0,
 		keepGoing: false,
 		hasNaN: false,
-		hideChallenges: false,
-		showStory: true,
-		forceOneTab: false,
+
 		points: modInfo.initialStartPoints,
 		subtabs: {},
 		lastSafeTab: (readData(layoutInfo.showTree) ? "none" : layoutInfo.startTab)
@@ -69,19 +67,19 @@ function getStartLayerData(layer) {
 	if (layerdata.unlocked === undefined)
 		layerdata.unlocked = true;
 	if (layerdata.total === undefined)
-		layerdata.total = new ExpantaNum(0);
+		layerdata.total = decimalZero;
 	if (layerdata.best === undefined)
-		layerdata.best = new ExpantaNum(0);
+		layerdata.best = decimalZero;
 	if (layerdata.resetTime === undefined)
 		layerdata.resetTime = 0;
-        if (layerdata.forceTooltip === undefined)
-                layerdata.forceTooltip = false;
+	if (layerdata.forceTooltip === undefined)
+		layerdata.forceTooltip = false;
 
-        layerdata.buyables = getStartBuyables(layer);
-        if (layerdata.noRespecConfirm === undefined) layerdata.noRespecConfirm = false
+	layerdata.buyables = getStartBuyables(layer);
+	if (layerdata.noRespecConfirm === undefined) layerdata.noRespecConfirm = false
 	if (layerdata.clickables == undefined)
 		layerdata.clickables = getStartClickables(layer);
-	layerdata.spentOnBuyables = new ExpantaNum(0);
+	layerdata.spentOnBuyables = decimalZero;
 	layerdata.upgrades = [];
 	layerdata.milestones = [];
 	layerdata.lastMilestone = null;
@@ -89,6 +87,7 @@ function getStartLayerData(layer) {
 	layerdata.challenges = getStartChallenges(layer);
 	layerdata.grid = getStartGrid(layer);
 	layerdata.prevTab = ""
+
 	return layerdata;
 }
 function getStartBuyables(layer) {
@@ -96,7 +95,7 @@ function getStartBuyables(layer) {
 	if (layers[layer].buyables) {
 		for (id in layers[layer].buyables)
 			if (isPlainObject(layers[layer].buyables[id]))
-				data[id] = new ExpantaNum(0);
+				data[id] = decimalZero;
 	}
 	return data;
 }
@@ -118,28 +117,6 @@ function getStartChallenges(layer) {
 	}
 	return data;
 }
-function fixSave() {
-	defaultData = getStartPlayer();
-	fixData(defaultData, player);
-
-	for (layer in layers) {
-		if (player[layer].best !== undefined)
-			player[layer].best = new ExpantaNum(player[layer].best);
-		if (player[layer].total !== undefined)
-			player[layer].total = new ExpantaNum(player[layer].total);
-
-		if (layers[layer].tabFormat && !Array.isArray(layers[layer].tabFormat)) {
-
-			if (!Object.keys(layers[layer].tabFormat).includes(player.subtabs[layer].mainTabs))
-				player.subtabs[layer].mainTabs = Object.keys(layers[layer].tabFormat)[0];
-		}
-		if (layers[layer].microtabs) {
-			for (item in layers[layer].microtabs)
-				if (!Object.keys(layers[layer].microtabs[item]).includes(player.subtabs[layer][item]))
-					player.subtabs[layer][item] = Object.keys(layers[layer].microtabs[item])[0];
-		}
-	}
-}
 function getStartGrid(layer) {
 	let data = {};
 	if (! layers[layer].grid) return data
@@ -152,6 +129,29 @@ function getStartGrid(layer) {
 		}
 	}
 	return data;
+}
+
+function fixSave() {
+	defaultData = getStartPlayer();
+	fixData(defaultData, player);
+
+	for (layer in layers) {
+		if (player[layer].best !== undefined)
+			player[layer].best = new Decimal(player[layer].best);
+		if (player[layer].total !== undefined)
+			player[layer].total = new Decimal(player[layer].total);
+
+		if (layers[layer].tabFormat && !Array.isArray(layers[layer].tabFormat)) {
+
+			if (!Object.keys(layers[layer].tabFormat).includes(player.subtabs[layer].mainTabs))
+				player.subtabs[layer].mainTabs = Object.keys(layers[layer].tabFormat)[0];
+		}
+		if (layers[layer].microtabs) {
+			for (item in layers[layer].microtabs)
+				if (!Object.keys(layers[layer].microtabs[item]).includes(player.subtabs[layer][item]))
+					player.subtabs[layer][item] = Object.keys(layers[layer].microtabs[item])[0];
+		}
+	}
 }
 function fixData(defaultData, newData) {
 	for (item in defaultData) {
@@ -166,17 +166,12 @@ function fixData(defaultData, newData) {
 			else
 				fixData(defaultData[item], newData[item]);
 		}
-		else if (defaultData[item] instanceof ExpantaNum) { // Convert to ExpantaNum
+		else if (defaultData[item] instanceof Decimal) { // Convert to Decimal
 			if (newData[item] === undefined)
 				newData[item] = defaultData[item];
 
-			else{
-                let newItemThing=new ExpantaNum(0)
-				newItemThing.array = newData[item].array
-				newItemThing.sign = newData[item].sign
-				newItemThing.layer = newData[item].layer
-                newData[item] = newItemThing
-            } 
+			else
+				newData[item] = new Decimal(newData[item]);
 		}
 		else if ((!!defaultData[item]) && (typeof defaultData[item] === "object")) {
 			if (newData[item] === undefined || (typeof defaultData[item] !== "object"))
@@ -192,14 +187,19 @@ function fixData(defaultData, newData) {
 	}
 }
 function load() {
-	let get = localStorage.getItem(modInfo.id);
-	if (get === null || get === undefined)
-		player = getStartPlayer();
-	else
-		player = Object.assign(getStartPlayer(), JSON.parse(atob(get)));
-	fixSave();
+	let get = localStorage.getItem(getModID());
 
-	if (player.offlineProd) {
+	if (get === null || get === undefined) {
+		player = getStartPlayer();
+		options = getStartOptions();
+	}
+	else {
+		player = Object.assign(getStartPlayer(), JSON.parse(decodeURIComponent(escape(atob(get)))));
+		fixSave();
+		loadOptions();
+	}
+
+	if (options.offlineProd) {
 		if (player.offTime === undefined)
 			player.offTime = { remain: 0 };
 		player.offTime.remain += (Date.now() - player.time) / 1000;
@@ -214,9 +214,21 @@ function load() {
 	setupTemp();
 	updateTemp();
 	updateTemp();
-	updateTabFormats();
+	updateTabFormats()
 	loadVue();
 }
+
+function loadOptions() {
+	let get2 = localStorage.getItem(getModID()+"_options");
+	if (get2) 
+		options = Object.assign(getStartOptions(), JSON.parse(decodeURIComponent(escape(atob(get2)))));
+	else 
+		options = getStartOptions()
+	if (themes.indexOf(options.theme) < 0) theme = "default"
+	fixData(options, getStartOptions())
+
+}
+
 function setupModInfo() {
 	modInfo.changelog = changelog;
 	modInfo.winText = winText ? winText : `Congratulations! You have reached the end and beaten this game, but for now...`;
@@ -232,18 +244,15 @@ function NaNcheck(data) {
 		else if (Array.isArray(data[item])) {
 			NaNcheck(data[item]);
 		}
-		else if (data[item] !== data[item] || data[item] === decimalNaN) {
-			if (NaNalert === true || confirm("Invalid value found in player, named '" + item + "'. Please let the creator of this mod know! Would you like to try to auto-fix the save and keep going?")) {
-				NaNalert = true;
-				data[item] = (data[item] !== data[item] ? 0 : decimalZero);
-			}
-			else {
+		else if (data[item] !== data[item] || checkDecimalNaN(data[item])) {
+			if (!NaNalert) {
 				clearInterval(interval);
-				player.autosave = false;
 				NaNalert = true;
+				alert("Invalid value found in player, named '" + item + "'. Please let the creator of this mod know! You can refresh the page, and you will be un-NaNed.")
+				return
 			}
 		}
-		else if (data[item] instanceof ExpantaNum) { // Convert to ExpantaNum
+		else if (data[item] instanceof Decimal) {
 		}
 		else if ((!!data[item]) && (data[item].constructor === Object)) {
 			NaNcheck(data[item]);
@@ -251,7 +260,8 @@ function NaNcheck(data) {
 	}
 }
 function exportSave() {
-	let str = btoa(JSON.stringify(player));
+	//if (NaNalert) return
+	let str = btoa(unescape((encodeURIComponent(JSON.stringify(player)))));
 
 	const el = document.createElement("textarea");
 	el.value = str;
@@ -266,12 +276,13 @@ function importSave(imported = undefined, forced = false) {
 		imported = prompt("Paste your save here");
 	try {
 		tempPlr = Object.assign(getStartPlayer(), JSON.parse(atob(imported)));
-		if (tempPlr.versionType != modInfo.id && !forced && !confirm("This save appears to be for a different mod! Are you sure you want to import?")) // Wrong save (use "Forced" to force it to accept.)
+		if (tempPlr.versionType != getModID() && !forced && !confirm("This save appears to be for a different mod! Are you sure you want to import?")) // Wrong save (use "Forced" to force it to accept.)
 			return;
 		player = tempPlr;
-		player.versionType = modInfo.id;
+		player.versionType = getModID();
 		fixSave();
 		versionCheck();
+		NaNcheck(save)
 		save();
 		window.location.reload();
 	} catch (e) {
@@ -282,12 +293,12 @@ function versionCheck() {
 	let setVersion = true;
 
 	if (player.versionType === undefined || player.version === undefined) {
-		player.versionType = modInfo.id;
+		player.versionType = getModID();
 		player.version = 0;
 	}
 
 	if (setVersion) {
-		if (player.versionType == modInfo.id && VERSION.num > player.version) {
+		if (player.versionType == getModID() && VERSION.num > player.version) {
 			player.keepGoing = false;
 			if (fixOldSave)
 				fixOldSave(player.version);
@@ -300,8 +311,14 @@ function versionCheck() {
 var saveInterval = setInterval(function () {
 	if (player === undefined)
 		return;
-	if (gameEnded && !player.keepGoing)
+	if (tmp.gameEnded && !player.keepGoing)
 		return;
-	if (player.autosave)
+	if (options.autosave)
 		save();
 }, 5000);
+
+window.onbeforeunload = () => {
+    if (player.autosave) {
+        save();
+    }
+};

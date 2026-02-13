@@ -5,8 +5,8 @@ var systemComponents = {
 			<div class="upgRow">
 				<div v-for="tab in Object.keys(data)">
 					<button v-if="data[tab].unlocked == undefined || data[tab].unlocked" v-bind:class="{tabButton: true, notify: subtabShouldNotify(layer, name, tab), resetNotify: subtabResetNotify(layer, name, tab)}"
-					v-bind:style="[{'border-color': tmp[layer].color}, (data[tab].glowColor && subtabShouldNotify(layer, name, tab) ? {'box-shadow': 'var(--hqProperty2a), 0 0 20px '  + data[tab].glowColor} : {}), tmp[layer].componentStyles['tab-button'], data[tab].buttonStyle]"
-						v-on:click="function(){player.subtabs[layer][name] = tab; updateTabFormats(); needCanvasUpdate = true;}">{{tab}}</button>
+					v-bind:style="[{'border-color': tmp[layer].color}, (subtabShouldNotify(layer, name, tab) ? {'box-shadow': 'var(--hqProperty2a), 0 0 20px '  + (data[tab].glowColor || defaultGlow)} : {}), tmp[layer].componentStyles['tab-button'], data[tab].buttonStyle]"
+						v-on:click="function(){player.subtabs[layer][name] = tab; updateTabFormats(); needCanvasUpdate = true;}">{{data[tab].name ??  tab}}</button>
 				</div>
 			</div>
 		`
@@ -18,7 +18,7 @@ var systemComponents = {
 		<button v-if="nodeShown(layer)"
 			v-bind:id="layer"
 			v-on:click="function() {
-				if (shiftDown) player[layer].forceTooltip = !player[layer].forceTooltip
+				if (shiftDown && options.forceTooltips) player[layer].forceTooltip = !player[layer].forceTooltip
 				else if(tmp[layer].isLayer) {
 					if (tmp[layer].leftTab) {
 						showNavTab(layer, prev)
@@ -29,6 +29,8 @@ var systemComponents = {
 				}
 				else {run(layers[layer].onClick, layers[layer])}
 			}"
+
+
 			v-bind:class="{
 				treeNode: tmp[layer].isLayer,
 				treeButton: !tmp[layer].isLayer,
@@ -45,18 +47,18 @@ var systemComponents = {
 				front: !tmp.scrolled,
 			}"
 			v-bind:style="constructNodeStyle(layer)">
-			<span v-html="(abb !== '' && tmp[layer].image === undefined) ? abb : '&nbsp;'"></span>
+			<span class="nodeLabel" v-html="(abb !== '' && tmp[layer].image === undefined) ? abb : '&nbsp;'"></span>
 			<tooltip
       v-if="tmp[layer].tooltip != ''"
 			:text="(tmp[layer].isLayer) ? (
 				player[layer].unlocked ? (tmp[layer].tooltip ? tmp[layer].tooltip : formatWhole(player[layer].points) + ' ' + tmp[layer].resource)
-				: (tmp[layer].tooltipLocked ? tmp[layer].tooltipLocked : '达到 ' + formatWhole(tmp[layer].requires) + ' ' + tmp[layer].baseResource + ' 以解锁 (你有 ' + formatWhole(tmp[layer].baseAmount) + ' ' + tmp[layer].baseResource + ')')
+				: (tmp[layer].tooltipLocked ? tmp[layer].tooltipLocked : 'Reach ' + formatWhole(tmp[layer].requires) + ' ' + tmp[layer].baseResource + ' to unlock (You have ' + formatWhole(tmp[layer].baseAmount) + ' ' + tmp[layer].baseResource + ')')
 			)
 			: (
 				tmp[layer].canClick ? (tmp[layer].tooltip ? tmp[layer].tooltip : 'I am a button!')
 				: (tmp[layer].tooltipLocked ? tmp[layer].tooltipLocked : 'I am a button!')
 			)"></tooltip>
-			<node-mark :layer='layer' :data='layers[layer].marked'></node-mark></span>
+			<node-mark :layer='layer' :data='tmp[layer].marked'></node-mark></span>
 		</button>
 		`
 	},
@@ -64,7 +66,7 @@ var systemComponents = {
 	
 	'layer-tab': {
 		props: ['layer', 'back', 'spacing', 'embedded'],
-		template: `<div v-bind:style="[tmp[layer].style ? tmp[layer].style : {}, (tmp[layer].tabFormat && !Array.isArray(tmp[layer].tabFormat)) ? tmp[layer].tabFormat[player.subtabs[layer].mainTabs].style : {}]">
+		template: `<div v-bind:style="[tmp[layer].style ? tmp[layer].style : {}, (tmp[layer].tabFormat && !Array.isArray(tmp[layer].tabFormat)) ? tmp[layer].tabFormat[player.subtabs[layer].mainTabs].style : {}]" class="noBackground">
 		<div v-if="back"><button v-bind:class="back == 'big' ? 'other-back' : 'back'" v-on:click="goBack(layer)">←</button></div>
 		<div v-if="!tmp[layer].tabFormat">
 			<div v-if="spacing" v-bind:style="{'height': spacing}" :key="this.$vnode.key + '-spacing'"></div>
@@ -103,18 +105,18 @@ var systemComponents = {
 	'overlay-head': {
 		template: `			
 		<div class="overlayThing" style="padding-bottom:7px; width: 90%; z-index: 1000; position: relative">
-		<span v-if="player.devSpeed && player.devSpeed != 1" class="overlayThing">
-			<br>Dev Speed: {{format(player.devSpeed)}}x<br>
+		<span v-if="layers?.AC?.devSpeedCal() && layers?.AC?.devSpeedCal() != 1" class="overlayThing">
+			<br>Dev Speed: {{format(layers?.AC?.devSpeedCal() ?? 1)}}x<br>
 		</span>
 		<span v-if="player.offTime !== undefined"  class="overlayThing">
 			<br>Offline Time: {{formatTime(player.offTime.remain)}}<br>
 		</span>
 		<br>
-		<span v-if="player.points.lt('1e1000')"  class="overlayThing">你有 </span>
+		<span v-if="player.points.lt('1e1000')"  class="overlayThing">You have </span>
 		<h2  class="overlayThing" id="points">{{format(player.points)}}</h2>
 		<span v-if="player.points.lt('1e1e6')"  class="overlayThing"> {{modInfo.pointsName}}</span>
 		<br>
-		<span v-if="canGenPoints()"  class="overlayThing">({{tmp.other.oompsMag != 0 ? format(tmp.other.oomps) + " OoM" + (tmp.other.oompsMag < 0 ? "^OoM" : tmp.other.oompsMag > 1 ? "^" + tmp.other.oompsMag : "") + "s" : formatSmall(getPointGen())}}/秒)</span>
+		<span v-if="canGenPoints()"  class="overlayThing">({{tmp.other.oompsMag != 0 ? format(tmp.other.oomps) + " OOM" + (tmp.other.oompsMag < 0 ? "^OOM" : tmp.other.oompsMag > 1 ? "^" + tmp.other.oompsMag : "") + "s" : formatSmall(getPointGen())}}/sec)</span>
 		<div v-for="thing in tmp.displayThings" class="overlayThing"><span v-if="thing" v-html="thing"></span></div>
 	</div>
 	`
@@ -131,16 +133,12 @@ var systemComponents = {
             Made by {{modInfo.author}}	
         </span>
         <br>
-        The Modding Tree <a v-bind:href="'https://github.com/Acamaeda/The-Modding-Tree/blob/master/changelog.md'" target="_blank" class="link" v-bind:style = "{'font-size': '14px', 'display': 'inline'}" >{{TMT_VERSION.tmtNum}}</a> by Acamaeda
+        The Modding Tree <a v-bind:href="'https://github.com/Acamaeda/The-Modding-Tree/blob/master/changelog.md'" target="_blank" class="link" v-bind:style = "{'font-size': '14px', 'display': 'inline'}" >{{TMT_VERSION.tmtNum}}</a> by Acamaeda and FlamemasterNXF
         <br>
         The Prestige Tree made by Jacorb and Aarex
-        <br>
-        Original idea by papyrus (on discord)
 		<br><br>
 		<div class="link" onclick="showTab('changelog-tab')">Changelog</div><br>
         <span v-if="modInfo.discordLink"><a class="link" v-bind:href="modInfo.discordLink" target="_blank">{{modInfo.discordName}}</a><br></span>
-        <a class="link" href="https://gityx.com" target="_blank" v-bind:style="modInfo.discordLink ? {'font-size': '16px'} : {}">Git游戏</a><br>
-        <a class="link" href="https://g8hh.github.io" target="_blank" v-bind:style="modInfo.discordLink ? {'font-size': '16px'} : {}">锅巴汉化</a><br>
         <a class="link" href="https://discord.gg/F3xveHV" target="_blank" v-bind:style="modInfo.discordLink ? {'font-size': '16px'} : {}">The Modding Tree Discord</a><br>
         <a class="link" href="http://discord.gg/wwQfgPa" target="_blank" v-bind:style="{'font-size': '16px'}">Main Prestige Tree server</a><br>
 		<br><br>
@@ -154,24 +152,28 @@ var systemComponents = {
         template: `
         <table>
             <tr>
-                <td><button class="opt" onclick="save()">存档</button></td>
-                <td><button class="opt" onclick="toggleOpt('autosave')">自动存档: {{ player.autosave?"开":"关" }}</button></td>
-                <td><button class="opt" onclick="hardReset()"><p style="color: red;">硬重置</p></button></td>
+                <td><button class="opt" onclick="save()">Save</button></td>
+                <td><button class="opt" onclick="toggleOpt('autosave')">Autosave: {{ options.autosave?"ON":"OFF" }}</button></td>
+                <td><button class="opt" onclick="hardReset()">HARD RESET</button></td>
             </tr>
             <tr>
-                <td><button class="opt" onclick="exportSave()">导出存档到剪贴板</button></td>
-                <td><button class="opt" onclick="importSave()">导入存档</button></td>
-                <td><button class="opt" onclick="toggleOpt('offlineProd')">离线进度: {{ player.offlineProd?"开":"关" }}</button></td>
+                <td><button class="opt" onclick="exportSave()">Export to clipboard</button></td>
+                <td><button class="opt" onclick="importSave()">Import</button></td>
+                <td><button class="opt" onclick="toggleOpt('offlineProd')">Offline Prod: {{ options.offlineProd?"ON":"OFF" }}</button></td>
             </tr>
             <tr>
-                <td><button class="opt" onclick="switchTheme()">主题: {{ getThemeName() }}</button></td>
-                <td><button class="opt" onclick="adjustMSDisp()">显示里程碑: {{ MS_DISPLAYS[MS_SETTINGS.indexOf(player.msDisplay)]}}</button></td>
-                <td><button class="opt" onclick="toggleOpt('hqTree')">高质量树: {{ player.hqTree?"开":"关" }}</button></td>
+                <td><button class="opt" onclick="switchTheme()">Theme: {{ getThemeName() }}</button></td>
+                <td><button class="opt" onclick="adjustMSDisp()">Show Milestones: {{ MS_DISPLAYS[MS_SETTINGS.indexOf(options.msDisplay)]}}</button></td>
+                <td><button class="opt" onclick="toggleOpt('hqTree')">High-Quality Tree: {{ options.hqTree?"ON":"OFF" }}</button></td>
             </tr>
             <tr>
-                <td><button class="opt" onclick="toggleOpt('hideChallenges')">显示已完成挑战: {{ player.hideChallenges?"关":"开" }}</button></td>
-                <td><button class="opt" onclick="toggleOpt('forceOneTab'); needsCanvasUpdate = true">全屏界面: {{ player.forceOneTab?"开":"自动" }}</button></td>
-			</tr> 
+                <td><button class="opt" onclick="toggleOpt('hideChallenges')">Completed Challenges: {{ options.hideChallenges?"HIDDEN":"SHOWN" }}</button></td>
+                <td><button class="opt" onclick="toggleOpt('forceOneTab'); needsCanvasUpdate = true">Single-Tab Mode: {{ options.forceOneTab?"ALWAYS":"AUTO" }}</button></td>
+				<td><button class="opt" onclick="toggleOpt('forceTooltips'); needsCanvasUpdate = true">Shift-Click to Toggle Tooltips: {{ options.forceTooltips?"ON":"OFF" }}</button></td>
+				</tr> 
+			<tr>
+                <td><button class="opt" onclick="toggleOpt('hideMilestonePopups')">Show Milestone Popups: {{ formatOption(!options.hideMilestonePopups) }}</button></td>
+            </tr>
         </table>`
     },
 
@@ -189,10 +191,10 @@ var systemComponents = {
 	},
 
 	'node-mark': {
-		props: ['layer', 'data'],
+		props: {'layer': {}, data: {}, offset: {default: 0}, scale: {default: 1}},
 		template: `<div v-if='data'>
-			<div v-if='data === true' class='star' style='position: absolute; left: -10px; top: -10px;'></div>
-			<img v-else class='mark' style='position: absolute; left: -25px; top: -10px;' v-bind:src="data"></div>
+			<div v-if='data === true' class='star' v-bind:style='{position: "absolute", left: (offset-10) + "px", top: (offset-10) + "px", transform: "scale( " + scale||1 + ", " + scale||1 + ")"}'></div>
+			<img v-else class='mark' v-bind:style='{position: "absolute", left: (offset-22) + "px", top: (offset-15) + "px", transform: "scale( " + scale||1 + ", " + scale||1 + ")"}' v-bind:src="data"></div>
 		</div>
 		`
 	},
@@ -200,7 +202,7 @@ var systemComponents = {
 	'particle': {
 		props: ['data', 'index'],
 		template: `<div><div class='particle instant' v-bind:style="[constructParticleStyle(data), data.style]" 
-			v-on:click="run(data.onClick, data)"  v-on:mouseenter="run(data.onMouseOver, data)" v-on:mouseleave="run(data.onMouseLeave, data)" ><span v-html="data.text"></span>
+			v-on:click="run(data.onClick, data)"  v-on:mouseenter="run(data.onMouseEnter, data)" v-on:mouseleave="run(data.onMouseLeave, data)" ><span v-html="data.text"></span>
 		</div>
 		<svg version="2" v-if="data.color">
 		<mask v-bind:id="'pmask' + data.id">
@@ -211,4 +213,11 @@ var systemComponents = {
 		`
 	},
 
+	'bg': {
+		props: ['layer'],
+		template: `<div class ="bg" v-bind:style="[tmp[layer].style ? tmp[layer].style : {}, (tmp[layer].tabFormat && !Array.isArray(tmp[layer].tabFormat)) ? tmp[layer].tabFormat[player.subtabs[layer].mainTabs].style : {}]"></div>
+		`
+	}
+
 }
+

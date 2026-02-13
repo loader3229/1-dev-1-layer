@@ -12,9 +12,12 @@ function respecBuyables(layer) {
 function canAffordUpgrade(layer, id) {
 	let upg = tmp[layer].upgrades[id]
 	if(tmp[layer].deactivated) return false
-	if (tmp[layer].upgrades[id].canAfford !== undefined) return tmp[layer].upgrades[id].canAfford
+	if (tmp[layer].upgrades[id].canAfford === false) return false
 	let cost = tmp[layer].upgrades[id].cost
-	return canAffordPurchase(layer, upg, cost)
+	if (cost !== undefined) 
+		return canAffordPurchase(layer, upg, cost)
+
+	return true
 }
 
 function canBuyBuyable(layer, id) {
@@ -25,7 +28,6 @@ function canBuyBuyable(layer, id) {
 
 
 function canAffordPurchase(layer, thing, cost) {
-
 	if (thing.currencyInternalName) {
 		let name = thing.currencyInternalName
 		if (thing.currencyLocation) {
@@ -51,7 +53,7 @@ function buyUpgrade(layer, id) {
 function buyUpg(layer, id) {
 	if (!tmp[layer].upgrades || !tmp[layer].upgrades[id]) return
 	let upg = tmp[layer].upgrades[id]
-	if (!player[layer].unlocked) return
+	if (!player[layer].unlocked || player[layer].deactivated) return
 	if (!tmp[layer].upgrades[id].unlocked) return
 	if (player[layer].upgrades.includes(id)) return
 	if (upg.canAfford === false) return
@@ -85,6 +87,7 @@ function buyUpg(layer, id) {
 	player[layer].upgrades.push(id);
 	if (upg.onPurchase != undefined)
 		run(upg.onPurchase, upg)
+	needCanvasUpdate = true
 }
 
 function buyMaxBuyable(layer, id) {
@@ -131,7 +134,8 @@ function inChallenge(layer, id) {
 	if (challenge == id) return true
 
 	if (layers[layer].challenges[challenge].countsAs)
-		return tmp[layer].challenges[challenge].countsAs.includes(id)
+		return tmp[layer].challenges[challenge].countsAs.includes(id) || false
+	return false
 }
 
 // ************ Misc ************
@@ -160,7 +164,7 @@ function showNavTab(name, prev) {
 	if (tmp[name] && tmp[name].previousTab !== undefined) prev = tmp[name].previousTab
 	var toTreeTab = name == "tree-tab"
 	console.log(name + prev)
-	if (!tmp[prev]?.leftTab == !tmp[name]?.leftTab) player[name].prevTab = prev
+	if (name!== "none" && prev && !tmp[prev]?.leftTab == !tmp[name]?.leftTab) player[name].prevTab = prev
 	else if (player[name])
 		player[name].prevTab = ""
 	player.navTab = name
@@ -182,7 +186,7 @@ function goBack(layer) {
 
 function layOver(obj1, obj2) {
 	for (let x in obj2) {
-		if (obj2[x] instanceof ExpantaNum) obj1[x] = new ExpantaNum(obj2[x])
+		if (obj2[x] instanceof Decimal) obj1[x] = new Decimal(obj2[x])
 		else if (obj2[x] instanceof Object) layOver(obj1[x], obj2[x]);
 		else obj1[x] = obj2[x];
 	}
@@ -215,12 +219,12 @@ function notifyLayer(name) {
 }
 
 function subtabShouldNotify(layer, family, id) {
-	let subtab = {}
-	if (family == "mainTabs") subtab = tmp[layer].tabFormat[id]
-	else subtab = tmp[layer].microtabs[family][id]
-
-	if (subtab.embedLayer) return tmp[subtab.embedLayer].notify
-	else return subtab.shouldNotify
+    let subtab = {}
+    if (family == "mainTabs") subtab = tmp[layer].tabFormat[id]
+    else subtab = tmp[layer].microtabs[family][id]
+	if (!subtab.unlocked) return false
+    if (subtab.embedLayer) return tmp[subtab.embedLayer].notify
+    else return subtab.shouldNotify
 }
 
 function subtabResetNotify(layer, family, id) {
@@ -232,13 +236,7 @@ function subtabResetNotify(layer, family, id) {
 }
 
 function nodeShown(layer) {
-	if (layerShown(layer)) return true
-	switch (layer) {
-		case "idk":
-			return player.idk.unlocked
-			break;
-	}
-	return false
+	return layerShown(layer)
 }
 
 function layerunlocked(layer) {
@@ -258,16 +256,19 @@ function toNumber(x) {
 }
 
 function updateMilestones(layer) {
+	if (tmp[layer].deactivated) return
 	for (id in layers[layer].milestones) {
 		if (!(hasMilestone(layer, id)) && layers[layer].milestones[id].done()) {
 			player[layer].milestones.push(id)
-			if (tmp[layer].milestonePopups || tmp[layer].milestonePopups === undefined) doPopup("milestone", tmp[layer].milestones[id].requirementDescription, "Milestone Gotten!", 3, tmp[layer].color);
+			if (layers[layer].milestones[id].onComplete) layers[layer].milestones[id].onComplete()
+			if ((tmp[layer].milestonePopups || tmp[layer].milestonePopups === undefined) && !options.hideMilestonePopups) doPopup("milestone", tmp[layer].milestones[id].requirementDescription, "Milestone Gotten!", 3, tmp[layer].color);
 			player[layer].lastMilestone = id
 		}
 	}
 }
 
 function updateAchievements(layer) {
+	if (tmp[layer].deactivated) return
 	for (id in layers[layer].achievements) {
 		if (isPlainObject(layers[layer].achievements[id]) && !(hasAchievement(layer, id)) && layers[layer].achievements[id].done()) {
 			player[layer].achievements.push(id)
@@ -306,9 +307,9 @@ ctrlDown = false
 
 document.onkeydown = function (e) {
 	if (player === undefined) return;
-	if (gameEnded && !player.keepGoing) return;
 	shiftDown = e.shiftKey
 	ctrlDown = e.ctrlKey
+	if (tmp.gameEnded && !player.keepGoing) return;
 	let key = e.key
 	if (ctrlDown) key = "ctrl+" + key
 	if (onFocused) return
@@ -343,9 +344,9 @@ document.title = modInfo.name
 
 // Converts a string value to whatever it's supposed to be
 function toValue(value, oldValue) {
-	if (oldValue instanceof ExpantaNum) {
-		value = new ExpantaNum (value)
-		if (value.eq(ExpantaNumNaN)) return ExpantaNumZero
+	if (oldValue instanceof Decimal) {
+		value = new Decimal (value)
+		if (checkDecimalNaN(value)) return decimalZero
 		return value
 	}
 	if (!isNaN(oldValue)) 

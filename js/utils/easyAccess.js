@@ -22,12 +22,24 @@ function challengeCompletions(layer, id) {
 	return (player[layer].challenges[id])
 }
 
+function canEnterChallenge(layer, id){
+	return tmp[layer].challenges[id].canEnter ?? true
+}
+
+function canExitChallenge(layer, id){
+	return tmp[layer].challenges[id].canExit ?? true
+}
+
 function getBuyableAmount(layer, id) {
 	return (player[layer].buyables[id])
 }
 
 function setBuyableAmount(layer, id, amt) {
 	player[layer].buyables[id] = amt
+}
+
+function addBuyables(layer, id, amt) {
+	player[layer].buyables[id] = player[layer].buyables[id].add(amt)
 }
 
 function getClickableState(layer, id) {
