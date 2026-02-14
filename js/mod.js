@@ -22,7 +22,7 @@ let changelog = `<h1>更新日志：</h1><br>
 		- 新增了？个层级<br>
 		- 终局：0点数`
 
-let winText = `2`
+let winText = `3`
 
 // If you add new functions anywhere inside of a layer, and those functions have an effect when called, add them here.
 // (The ones here are examples, all official functions are already taken care of)
@@ -31,7 +31,9 @@ function n(x) {
 	return new Decimal(x)
 }
 function getStartPoints(){
-    return new Decimal(modInfo.initialStartPoints)
+	let sPExp = layers['l1'].sPExp();
+	if(sPExp.gt(0)) return player.points.pow(sPExp);
+    return new Decimal(modInfo.initialStartPoints);
 }
 
 // Determines if it should show points/sec
@@ -51,9 +53,15 @@ function getPointGen() {
 	if(hasUpgrade('l1',15))gain=gain.mul(upgradeEffect('l1',15))
 
 	if(hasMilestone('l2',0)) gain = gain.mul(2)
+	
+	gain = gain.mul(tmp.l3.ptsEff1);
+	if(hasUpgrade('l3', 11)) gain = gain.mul(upgradeEffect('l3', 11));
 
 	if(hasUpgrade("l2",24)) gain = gain.pow(1.1)
-
+	if(hasUpgrade('l3', 44)) gain = gain.pow(upgradeEffect('l3', 44));
+	if(hasUpgrade('l3', 65)) gain = gain.pow(tmp.l3.singEff1);
+	
+	if(inChallenge('l3', 11)) gain = gain.ln();
 	return gain
 }
 

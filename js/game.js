@@ -137,7 +137,7 @@ function rowReset(row, layer) {
 	}
 }
 
-function layerDataReset(layer, keep = []) {
+function layerDataReset(layer, keep = [], keepMilestones = []) {
 	let storedData = {unlocked: player[layer].unlocked, forceTooltip: player[layer].forceTooltip, noRespecConfirm: player[layer].noRespecConfirm, prevTab:player[layer].prevTab} // Always keep these
 
 	for (thing in keep) {
@@ -152,7 +152,7 @@ function layerDataReset(layer, keep = []) {
 
 	layOver(player[layer], getStartLayerData(layer))
 	player[layer].upgrades = []
-	player[layer].milestones = []
+	player[layer].milestones = keepMilestones;
 	player[layer].achievements = []
 
 	for (thing in storedData) {
@@ -320,7 +320,8 @@ VERSION.withName = VERSION.withoutName + (VERSION.name ? ": " + VERSION.name : "
 function autobuyUpgrades(layer){
 	if (!tmp[layer].upgrades) return
 	for (id in tmp[layer].upgrades)
-		if (isPlainObject(tmp[layer].upgrades[id]) && (layers[layer].upgrades[id].canAfford === undefined || layers[layer].upgrades[id].canAfford() === true))
+		if (isPlainObject(tmp[layer].upgrades[id]) && (layers[layer].upgrades[id].canAfford === undefined || layers[layer].upgrades[id].canAfford() === true)
+			&& (layers[layer].upgrades[id].ignoreAutoUpgrade === undefined || !layers[layer].upgrades[id].ignoreAutoUpgrade()))
 			buyUpg(layer, id) 
 }
 
