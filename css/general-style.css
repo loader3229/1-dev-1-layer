@@ -39,3 +39,19 @@ h1, h2, h3, b, input {
 	color: var(--points);
 	text-shadow: 0 0 10px var(--points);
 }
+
+@property --progress {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes bgScroll {
+  0% {
+    --progress: 0deg;
+    background-position: 0% calc(40% + sin(var(--progress)) * 25%);
+  }
+  100% {
+    --progress: 360deg;
+    background-position: -100% calc(40% + sin(var(--progress)) * 25%);
+  }
+}

@@ -8,7 +8,7 @@ let modInfo = {
 	initialStartPoints: new Decimal (0), // Used for hard resets and new players
 	
 	offlineLimit: 168,  // In hours
-	modFiles: ["layers/layer1.js","layers/layer2.js", "layers/layer3.js", "layers/layer4.js", "layers/layer5.js", "layers/achievements.js", "tree.js"]
+	modFiles: ["layers/layer1.js","layers/layer2.js", "layers/layer3.js", "layers/layer4.js", "layers/layer5.js", "layers/layer6.js", "layers/achievements.js", "tree.js"]
 }
 
 // Set your version in num and name
