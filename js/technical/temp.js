@@ -1,5 +1,4 @@
 var tmp = {}
-var temp = tmp // Proxy for tmp
 var funcs = {}
 var NaNalert = false;
 
@@ -52,8 +51,6 @@ function setupTemp() {
     }
 
 	updateWidth()
-
-	temp = tmp
 }
 
 const boolNames = ["unlocked", "deactivated"]

@@ -8,7 +8,7 @@ let modInfo = {
 	initialStartPoints: new Decimal (0), // Used for hard resets and new players
 	
 	offlineLimit: 168,  // In hours
-	modFiles: ["layers.js", "layers/layer4.js", "tree.js"]
+	modFiles: ["layers/layer1.js","layers/layer2.js", "layers/layer3.js", "layers/layer4.js", "layers/layer5.js", "layers/achievements.js", "tree.js"]
 }
 
 // Set your version in num and name
@@ -52,7 +52,7 @@ function getPointGen() {
 	gain=gain.mul(tmp.l1.replEff1)
 	if(hasUpgrade('l1',15))gain=gain.mul(upgradeEffect('l1',15))
 
-		if(hasMilestone('l4', 0)) gain=gain.mul(layers.l4.total_bars().add(1));
+	if(hasMilestone('l4', 0)) gain=gain.mul(layers.l4.total_bars().add(1));
 
 	if(hasMilestone('l2',0)) gain = gain.mul(2)
 	
@@ -105,3 +105,70 @@ function maxTickLength() {
 // you can cap their current resources with this.
 function fixOldSave(oldVersion){
 }
+
+//e后数字开根
+function expRoot(num, root) {
+    return n(10).pow(num.max(1).log10().add(1).root(root).sub(1))
+}
+
+//e后数字乘方
+function expPow(num, pow) {
+    return n(10).pow(num.max(1).log10().add(1).pow(pow).sub(1))
+}
+
+//软上限
+function Softcap(num, start, power, mode = 0, dis) {
+    let x = n(num)
+    start = n(start)
+    if (x.gte(start) && !dis) {
+        if ([0, "pow"].includes(mode)) x = x.div(start).max(1).pow(power).mul(start)
+        if ([1, "mul"].includes(mode)) x = x.sub(start).mul(power).add(start)
+        if ([2, "exp"].includes(mode)) x = expPow(x.div(start), power).mul(start)
+        if ([3, "log"].includes(mode)) x = x.div(start).log(power).add(1).mul(start)
+    }
+    return x
+}
+
+//反向软上限
+function anti_softcap(num, start, power, mode = 0, dis) {
+    let x = num
+    start = n(start)
+    if (x.gte(start) && !dis) {
+        if ([0, "pow"].includes(mode)) x = x.div(start).max(1).root(power).mul(start)
+        if ([1, "mul"].includes(mode)) x = x.sub(start).div(power).add(start)
+        if ([2, "exp"].includes(mode)) x = expRoot(x.div(start), power).mul(start)
+        if ([3, "log"].includes(mode)) x = Decimal.pow(power, x.div(start).sub(1)).mul(start)
+    }
+    return x
+}
+
+//溢出软上限
+function overflow(num, start, power, meta = 1) {
+    if (isNaN(num.mag)) return new Decimal(0)
+    start = n(start)
+    if (num.gt(start)) {
+        if (meta == 1) {
+            let s = start.log10()
+            num = num.log10().div(s).pow(power).mul(s).pow10()
+        } else {
+            let s = start.iteratedlog(10, meta)
+            num = Decimal.iteratedexp(10, meta, num.iteratedlog(10, meta).div(s).pow(power).mul(s));
+        }
+    }
+    return num;
+}
+
+//Decimal类的软上限
+Decimal.prototype.softcap = function (start, power, mode, dis) {
+    return Softcap(this, start, power, mode, dis)
+}
+Decimal.prototype.anti_softcap = function (start, power, mode, dis) {
+    return anti_softcap(this, start, power, mode, dis)
+}
+Decimal.prototype.overflow = function (start, power, meta) {
+    return overflow(this, start, power, meta)
+}
+
+
+//计算溢出软上限效果
+function calcOverflow(x,y,s,height=1) { return x.gte(s) ? height === 1 ? x.max(1).log10().div(y.max(1).log10()) : x.max(1).iteratedlog(10,height).div(y.max(1).iteratedlog(10,height)) : n(1) }
