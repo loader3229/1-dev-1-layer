@@ -1,5 +1,5 @@
 let modInfo = {
-	name: "一人做一层",
+	name: "一人做一层 One Dev One Layer",
 	id: "1dev1layer-QUFB",
 	author: "1 Dev 1 Layer Team",
 	pointsName: "点数",
@@ -8,7 +8,7 @@ let modInfo = {
 	initialStartPoints: new Decimal (0), // Used for hard resets and new players
 	
 	offlineLimit: 168,  // In hours
-	modFiles: ["layers.js", "tree.js"]
+	modFiles: ["layers.js", "layers/layer4.js", "tree.js"]
 }
 
 // Set your version in num and name
@@ -52,17 +52,27 @@ function getPointGen() {
 	gain=gain.mul(tmp.l1.replEff1)
 	if(hasUpgrade('l1',15))gain=gain.mul(upgradeEffect('l1',15))
 
+		if(hasMilestone('l4', 0)) gain=gain.mul(layers.l4.total_bars().add(1));
+
 	if(hasMilestone('l2',0)) gain = gain.mul(2)
 	
 	gain = gain.mul(tmp.l3.ptsEff1);
 	if(hasUpgrade('l3', 11)) gain = gain.mul(upgradeEffect('l3', 11));
+    
+	if(hasUpgrade('l4', 21)) gain = gain.mul(upgradeEffect('l4', 21));
+	if(hasUpgrade('l4', 36)) gain = gain.mul(buyableEffect('l4', 33));
+	if(hasUpgrade('l4', 61)) gain = gain.mul(layers.l2.coreEffect5());
 
 	if(hasUpgrade("l2",24)) gain = gain.pow(1.1)
 	if(hasUpgrade('l3', 44)) gain = gain.pow(upgradeEffect('l3', 44));
 	if(hasUpgrade('l3', 65)) gain = gain.pow(tmp.l3.singEff1);
 	
-	if(inChallenge('l3', 11)) gain = gain.ln();
-	return gain
+	if(inChallenge('l3', 11)) gain = Decimal.pow(10,gain.add(10).log10().pow(layers.l3.challenges[11].dPower()));
+	// 挑战效果在软上限前面
+    
+    if(gain.gte('1e3500') && !(hasUpgrade("l4",42) && hasUpgrade("l4",43)))gain = gain.pow(0.2).mul('1e2800')
+    
+    return gain
 }
 
 // You can add non-layer related variables that should to into "player" and be saved here, along with default values
